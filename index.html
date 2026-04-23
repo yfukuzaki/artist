@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>エセ芸術家 ニューヨークへ行く</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&display=swap');
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #f8fafc;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .hidden { display: none; }
+        .active-dot { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        /* スコアバッジを少し大きく */
+        .score-badge { position: absolute; top: -6px; right: -6px; background: #1e293b; color: white; border-radius: 999px; width: 22px; height: 22px; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; }
+        
+        .timer-low { color: #ef4444; animation: shake 0.5s infinite; scale: 1.1; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col p-4">
+        
+        <!-- 進行ナビゲーション：フォントサイズ拡大 (text-[8px] -> text-xs) -->
+        <nav id="step-nav" class="flex justify-between items-center mb-8 px-2 pt-2">
+            <div class="flex flex-col items-center gap-2 opacity-20" id="nav-step-1">
+                <div class="w-10 h-1.5 bg-slate-400 rounded-full"></div>
+                <span class="text-xs font-black">SETUP</span>
+            </div>
+            <div class="flex flex-col items-center gap-2 opacity-20" id="nav-step-2">
+                <div class="w-10 h-1.5 bg-slate-400 rounded-full"></div>
+                <span class="text-xs font-black">ROLE</span>
+            </div>
+            <div class="flex flex-col items-center gap-2 opacity-20" id="nav-step-3">
+                <div class="w-10 h-1.5 bg-slate-400 rounded-full"></div>
+                <span class="text-xs font-black">DRAW</span>
+            </div>
+            <div class="flex flex-col items-center gap-2 opacity-20" id="nav-step-4">
+                <div class="w-10 h-1.5 bg-slate-400 rounded-full"></div>
+                <span class="text-xs font-black">VOTE</span>
+            </div>
+        </nav>
+
+        <!-- 1. 設定画面 -->
+        <div id="screen-setup" class="space-y-6">
+            <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-100">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-black italic tracking-tighter text-indigo-900 mb-1">FAKE ARTIST</h1>
+                    <p id="round-label" class="text-sm font-black text-slate-400 uppercase tracking-widest">Round 1</p>
+                </div>
+
+                <!-- スコア表示エリア：サイズ調整 -->
+                <div id="setup-score-area" class="hidden mb-6 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 text-center">累計スコア</p>
+                    <div id="setup-score-list" class="flex flex-wrap justify-center gap-3"></div>
+                </div>
+
+                <div class="space-y-8">
+                    <div id="player-count-section" class="text-center">
+                        <label class="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-4 block">プレイヤー人数</label>
+                        <div class="flex items-center justify-center gap-8">
+                            <button onclick="changePlayerCount(-1)" class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-2xl font-bold text-indigo-600 shadow-sm">-</button>
+                            <span id="player-count-display" class="text-6xl font-black text-slate-800 tabular-nums">4</span>
+                            <button onclick="changePlayerCount(1)" class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-2xl font-bold text-indigo-600 shadow-sm">+</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-4 block text-center">カテゴリー</label>
+                        <div id="category-grid" class="grid grid-cols-2 gap-3"></div>
+                    </div>
+
+                    <button onclick="startGame()" class="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black text-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+                        ゲームを開始する
+                    </button>
+                    <button id="btn-reset-scores" onclick="resetAll()" class="hidden w-full text-slate-400 text-xs font-black hover:text-red-500 py-2 transition-colors uppercase tracking-widest text-center">最初から（全リセット）</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 確認待機 -->
+        <div id="screen-ready" class="hidden flex-1 flex flex-col justify-center">
+            <div class="bg-white rounded-3xl shadow-xl p-8 text-center border border-slate-100">
+                <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                </div>
+                <h2 id="ready-player-name" class="text-4xl font-black mb-2 text-slate-800">プレイヤー ?</h2>
+                <p id="ready-instruction" class="text-indigo-600 font-bold mb-12 text-lg">さんにスマホを渡してください</p>
+                <button onclick="revealRole()" class="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black text-2xl shadow-lg active:scale-95">自分の役割を見る</button>
+            </div>
+        </div>
+
+        <!-- 3. 正体確認 -->
+        <div id="screen-reveal" class="hidden flex-1 flex flex-col justify-center">
+            <div class="bg-white rounded-3xl shadow-xl p-8 text-center border border-slate-100 relative overflow-hidden">
+                <div id="reveal-bg-color" class="absolute top-0 left-0 w-full h-3"></div>
+                
+                <div class="mb-8">
+                    <p id="reveal-color-instruction" class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">あなたのペンの色</p>
+                    <div class="flex items-center justify-center gap-4">
+                        <div id="reveal-color-tag" class="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-md">1</div>
+                        <span id="reveal-color-name" class="text-3xl font-black text-slate-800 italic">---</span>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-900 text-white p-10 rounded-[2.5rem] mb-10 shadow-inner">
+                    <div id="reveal-content-fake" class="hidden">
+                        <span class="bg-rose-500 text-xs font-black px-3 py-1 rounded-full mb-5 inline-block">YOUR ROLE</span>
+                        <h3 class="text-4xl font-black text-rose-400 leading-tight">あなたは<br>エセ芸術家です</h3>
+                    </div>
+                    <div id="reveal-content-artist" class="hidden">
+                        <span class="bg-emerald-500 text-xs font-black px-3 py-1 rounded-full mb-5 inline-block">THEME</span>
+                        <p class="text-slate-400 text-sm mb-3 font-bold italic underline decoration-indigo-500 decoration-2">今回のお題</p>
+                        <h3 id="reveal-theme-text" class="text-5xl font-black text-white">---</h3>
+                    </div>
+                </div>
+
+                <button onclick="nextPlayer()" class="w-full bg-slate-800 text-white py-6 rounded-2xl font-black text-xl shadow-lg active:scale-95">内容を確認しました</button>
+            </div>
+        </div>
+
+        <!-- 4. 描画順管理 -->
+        <div id="screen-drawing" class="hidden flex-1 flex flex-col">
+            <div class="bg-white rounded-3xl shadow-xl p-8 text-center flex-1 border border-slate-100 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-8 text-sm font-black text-slate-300">
+                        <span id="draw-turn-count">Turn 1 / 2</span>
+                        <div class="flex gap-2" id="draw-dots"></div>
+                    </div>
+
+                    <div id="draw-color-badge" class="w-28 h-28 rounded-[2rem] mx-auto mb-5 flex items-center justify-center text-white shadow-xl transition-all duration-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <h2 id="draw-player-name" class="text-4xl font-black text-slate-800 mb-1">プレイヤー ?</h2>
+                    <p id="draw-color-name" class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4"></p>
+                </div>
+
+                <div class="flex-1 flex flex-col items-center justify-center space-y-4">
+                    <p class="text-slate-400 font-black italic text-lg">一筆書きで描いてください</p>
+                    <div id="draw-timer-container" class="flex flex-col items-center">
+                        <div class="flex items-center gap-5 transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-200"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span id="draw-timer-text" class="text-8xl font-black tabular-nums tracking-tighter">40</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button onclick="nextDrawingTurn()" class="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black text-2xl shadow-lg active:scale-95 transition-all mb-4">描き終わりました！</button>
+                    <div id="next-drawer-hint" class="text-base font-black text-slate-400 py-1 transition-opacity duration-300">
+                        次は --- です
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. 判定画面 -->
+        <div id="screen-results" class="hidden flex-1 flex flex-col">
+            <div class="bg-white rounded-3xl shadow-xl p-8 text-center flex-1 flex flex-col justify-center border border-slate-100">
+                <div id="result-selection" class="space-y-6">
+                    <!-- 案内メッセージ：サイズ拡大 (text-[11px] -> text-sm) -->
+                    <div class="mb-8 p-5 bg-indigo-50 rounded-2xl border border-indigo-100 text-left">
+                        <p class="text-sm font-bold text-indigo-900 leading-relaxed">
+                            エセ芸術家だと思う色ペンの人を選びます。<br><br>
+                            グループの中で投票を行い、もっとも得票数の高かった人に向かって、みんなで<span class="text-indigo-600 text-base">『あなたはエセ芸術家ですか？』</span>と聞きましょう。
+                        </p>
+                    </div>
+
+                    <h2 class="text-3xl font-black mb-6 text-slate-800 tracking-tighter">勝敗の判定</h2>
+                    
+                    <div class="space-y-4">
+                        <button onclick="finalizeGame('fake_win_hidden')" class="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-left hover:border-indigo-600 transition-all">
+                            <p class="font-black text-lg">① エセが見破られなかった</p>
+                            <p class="text-sm text-slate-400 font-bold mt-1">エセ勝利 (+2点)</p>
+                        </button>
+                        <button onclick="finalizeGame('fake_win_guess')" class="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-left hover:border-indigo-600 transition-all">
+                            <p class="font-black text-lg">② 見破られたがお題を当てた</p>
+                            <p class="text-sm text-slate-400 font-bold mt-1">エセ勝利 (+2点)</p>
+                        </button>
+                        <button onclick="finalizeGame('artists_win')" class="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-left hover:border-indigo-600 transition-all">
+                            <p class="font-black text-lg">③ 見破られ、お題も外した</p>
+                            <p class="text-sm text-slate-400 font-bold mt-1">芸術家勝利 (+1点)</p>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="result-final" class="hidden space-y-8 animate-in zoom-in">
+                    <h2 class="text-3xl font-black text-slate-800 italic tracking-tighter uppercase text-center">Result</h2>
+                    <div class="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 space-y-8 text-left">
+                        <div>
+                            <p class="text-xs font-black text-slate-300 uppercase tracking-widest mb-2">お題の正解</p>
+                            <p id="final-theme" class="text-4xl font-black text-indigo-600"></p>
+                        </div>
+                        <div class="border-t border-slate-200 pt-6">
+                            <p class="text-xs font-black text-slate-300 uppercase tracking-widest mb-3">エセ芸術家だったのは...</p>
+                            <div class="flex items-center gap-4 bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                                <div id="final-fake-color" class="w-12 h-12 rounded-2xl shadow-inner flex items-center justify-center text-white text-xl font-black"></div>
+                                <span id="final-fake-name" class="font-black text-xl"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-4">
+                        <button onclick="prepareNextGame()" class="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black text-2xl shadow-lg active:scale-95">次のゲームへ</button>
+                        <button onclick="goToSetup()" class="w-full bg-white border-2 border-slate-100 text-slate-400 py-4 rounded-2xl font-bold text-sm uppercase tracking-widest">スコアを確認して戻る</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const TOPIC_DATABASE = {
+            "食べ物": ["ソフトクリーム", "ショートケーキ", "おにぎり", "目玉焼き", "だんご", "ドーナツ", "エビフライ", "ピザ","焼肉","からあげ","カレー","ぎょうざ"],
+            "生きもの": ["きりん", "かたつむり", "ぞう", "たこ", "ぺんぎん", "ちょうちょ", "かに", "うさぎ","せみ","わに","らくだ"],
+            "乗り物・建物": ["自転車", "飛行機", "救急車", "ロケット", "東京タワー", "お城", "ヨット", "UFO","一輪車","バス"],
+            "日用品": ["傘", "メガネ", "ハサミ", "腕時計", "懐中電灯", "ハンガー", "扇風機", "蛇口"],
+            "家電": ["炊飯器", "掃除機", "電子レンジ", "ドライヤー", "冷蔵庫", "洗濯機", "アイロン", "テレビ"],
+            "野菜": ["トマト", "とうもろこし", "なす", "ピーマン", "にんじん", "たけのこ", "ブロッコリー", "かぼちゃ"],
+            "職業": ["医者", "警察官", "歌手", "美容師", "野球選手", "料理人", "消防士", "カメラマン"],
+            "スポーツ": ["野球", "サッカー", "テニス", "卓球", "ゴルフ", "ボウリング", "バスケットボール", "水泳","マラソン","すもう"],
+            "遊び・公園": ["ブランコ", "すべり台", "なわとび", "ダーツ", "たけうま", "フラフープ", "たこあげ", "シーソー"],
+            "キャラクター・シンボル": ["スマイルマーク", "雪だるま", "自由の女神", "スペード", "リサイクルマーク", "アンパンマン"]
+        };
+
+        const PLAYER_COLORS = [
+            { id: 0, name: 'ソフトピンク', code: '#FF91A4' },
+            { id: 1, name: '赤', code: '#E60012' },
+            { id: 2, name: '紫', code: '#A349A4' },
+            { id: 3, name: '橙', code: '#F39800' },
+            { id: 4, name: '黄緑', code: '#8FC31F' },
+            { id: 5, name: '緑', code: '#009944' },
+            { id: 6, name: '水色', code: '#00A0E9' },
+            { id: 7, name: '青', code: '#0068B7' }
+        ];
+
+        let state = {
+            playerCount: 4,
+            round: 1,
+            selectedCategory: "食べ物",
+            players: [], 
+            currentTheme: "",
+            activePlayerIndex: 0,
+            turnCount: 1,
+            scores: {},
+            timerInterval: null,
+            timeLeft: 40
+        };
+
+        function init() {
+            const grid = document.getElementById('category-grid');
+            grid.innerHTML = '';
+            Object.keys(TOPIC_DATABASE).forEach(cat => {
+                const btn = document.createElement('button');
+                btn.innerText = cat;
+                btn.className = `category-btn py-4 px-2 rounded-2xl text-sm font-black border-2 transition-all ${state.selectedCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-100 text-slate-400'}`;
+                btn.onclick = () => selectCategory(cat);
+                grid.appendChild(btn);
+            });
+            updateNav(1);
+            updateSetupDisplay();
+        }
+
+        function selectCategory(cat) {
+            state.selectedCategory = cat;
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                const isSelected = btn.innerText === cat;
+                btn.className = `category-btn py-4 px-2 rounded-2xl text-sm font-black border-2 transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-100 text-slate-400'}`;
+            });
+        }
+
+        function changePlayerCount(delta) {
+            const newVal = state.playerCount + delta;
+            if (newVal >= 3 && newVal <= 8) {
+                state.playerCount = newVal;
+                document.getElementById('player-count-display').innerText = newVal;
+                state.scores = {};
+                state.round = 1;
+                updateSetupDisplay();
+            }
+        }
+
+        function startGame() {
+            const topics = TOPIC_DATABASE[state.selectedCategory];
+            state.currentTheme = topics[Math.floor(Math.random() * topics.length)];
+            
+            let sessionPlayers = [];
+            for (let i = 0; i < state.playerCount; i++) {
+                const color = PLAYER_COLORS[i];
+                if (state.scores[color.id] === undefined) {
+                    state.scores[color.id] = 0;
+                }
+                sessionPlayers.push({
+                    id: color.id,
+                    initialOrder: i + 1,
+                    color: color,
+                    isFake: false
+                });
+            }
+
+            const fakeIdx = Math.floor(Math.random() * sessionPlayers.length);
+            sessionPlayers[fakeIdx].isFake = true;
+
+            if (state.round > 1) {
+                for (let i = sessionPlayers.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [sessionPlayers[i], sessionPlayers[j]] = [sessionPlayers[j], sessionPlayers[i]];
+                }
+            }
+
+            state.players = sessionPlayers;
+            state.activePlayerIndex = 0;
+            state.turnCount = 1;
+            updateNav(2);
+            showScreen('screen-ready');
+            updateReadyScreen();
+        }
+
+        function updateReadyScreen() {
+            const p = state.players[state.activePlayerIndex];
+            const nameEl = document.getElementById('ready-player-name');
+            if (state.round > 1) {
+                nameEl.innerText = `${p.color.name}色の人`;
+                nameEl.style.color = p.color.code;
+            } else {
+                nameEl.innerText = `プレイヤー ${p.initialOrder}`;
+                nameEl.style.color = '';
+            }
+        }
+
+        function revealRole() {
+            const p = state.players[state.activePlayerIndex];
+            document.getElementById('reveal-color-tag').innerText = p.initialOrder;
+            document.getElementById('reveal-color-tag').style.backgroundColor = p.color.code;
+            document.getElementById('reveal-color-name').innerText = p.color.name;
+            document.getElementById('reveal-bg-color').style.backgroundColor = p.color.code;
+            
+            const colorInstruction = document.getElementById('reveal-color-instruction');
+            colorInstruction.innerText = state.round > 1 ? "ペンは引き続きこの色を使用します" : "あなたのペンの色はこれです";
+            colorInstruction.className = `text-xs font-black uppercase tracking-widest mb-3 ${state.round > 1 ? 'text-indigo-600' : 'text-slate-400'}`;
+
+            document.getElementById('reveal-content-fake').className = p.isFake ? '' : 'hidden';
+            document.getElementById('reveal-content-artist').className = p.isFake ? 'hidden' : '';
+            if (!p.isFake) document.getElementById('reveal-theme-text').innerText = state.currentTheme;
+            
+            showScreen('screen-reveal');
+        }
+
+        function nextPlayer() {
+            if (state.activePlayerIndex < state.playerCount - 1) {
+                state.activePlayerIndex++;
+                updateReadyScreen();
+                showScreen('screen-ready');
+            } else {
+                state.activePlayerIndex = 0;
+                updateNav(3);
+                updateDrawingScreen();
+                showScreen('screen-drawing');
+            }
+        }
+
+        function updateDrawingScreen() {
+            const p = state.players[state.activePlayerIndex];
+            document.getElementById('draw-turn-count').innerText = `Turn ${state.turnCount} / 2`;
+            document.getElementById('draw-player-name').innerText = `${p.color.name}色の人`;
+            document.getElementById('draw-player-name').style.color = p.color.code;
+            document.getElementById('draw-color-name').innerText = p.color.name + "色のペン";
+            document.getElementById('draw-color-badge').style.backgroundColor = p.color.code;
+            
+            const dots = document.getElementById('draw-dots');
+            dots.innerHTML = '';
+            state.players.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = `w-2 h-2 rounded-full ${i === state.activePlayerIndex ? 'bg-indigo-600 active-dot' : 'bg-slate-200'}`;
+                dots.appendChild(dot);
+            });
+
+            updateNextPlayerHint();
+            startDrawingTimer();
+        }
+
+        function updateNextPlayerHint() {
+            const hintEl = document.getElementById('next-drawer-hint');
+            
+            if (state.turnCount === 2 && state.activePlayerIndex === state.playerCount - 1) {
+                hintEl.innerText = "これでラストです！描き終えたら結果発表へ";
+                hintEl.style.color = "#94a3b8";
+            } else {
+                let nextIdx = state.activePlayerIndex + 1;
+                if (nextIdx >= state.playerCount) nextIdx = 0;
+                
+                const nextP = state.players[nextIdx];
+                hintEl.innerHTML = `次は <span style="color:${nextP.color.code}">${nextP.color.name}色の人</span> です`;
+                hintEl.style.color = "";
+            }
+        }
+
+        function startDrawingTimer() {
+            clearInterval(state.timerInterval);
+            state.timeLeft = 40;
+            updateTimerDisplay();
+
+            state.timerInterval = setInterval(() => {
+                state.timeLeft--;
+                updateTimerDisplay();
+                if (state.timeLeft <= 0) {
+                    clearInterval(state.timerInterval);
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const timerText = document.getElementById('draw-timer-text');
+            timerText.innerText = state.timeLeft;
+            if (state.timeLeft <= 10) {
+                timerText.classList.add('timer-low');
+            } else {
+                timerText.classList.remove('timer-low');
+            }
+        }
+
+        function nextDrawingTurn() {
+            clearInterval(state.timerInterval);
+            if (state.activePlayerIndex < state.playerCount - 1) {
+                state.activePlayerIndex++;
+                updateDrawingScreen();
+            } else if (state.turnCount < 2) {
+                state.activePlayerIndex = 0;
+                state.turnCount = 2;
+                updateDrawingScreen();
+            } else {
+                updateNav(4);
+                showScreen('screen-results');
+                document.getElementById('result-selection').classList.remove('hidden');
+                document.getElementById('result-final').classList.add('hidden');
+            }
+        }
+
+        function finalizeGame(pattern) {
+            const fakePlayer = state.players.find(p => p.isFake);
+            if (pattern === 'fake_win_hidden' || pattern === 'fake_win_guess') {
+                state.scores[fakePlayer.id] += 2;
+            } else if (pattern === 'artists_win') {
+                state.players.forEach(p => {
+                    if (!p.isFake) state.scores[p.id] += 1;
+                });
+            }
+
+            document.getElementById('result-selection').classList.add('hidden');
+            document.getElementById('result-final').classList.remove('hidden');
+            
+            document.getElementById('final-theme').innerText = state.currentTheme;
+            document.getElementById('final-fake-name').innerText = `${fakePlayer.color.name}色の人`;
+            document.getElementById('final-fake-color').style.backgroundColor = fakePlayer.color.code;
+            document.getElementById('final-fake-color').innerText = fakePlayer.initialOrder;
+        }
+
+        function updateSetupDisplay() {
+            document.getElementById('round-label').innerText = `Round ${state.round}`;
+            const area = document.getElementById('setup-score-area');
+            const list = document.getElementById('setup-score-list');
+            const resetBtn = document.getElementById('btn-reset-scores');
+
+            const scoreValues = Object.values(state.scores);
+            if (scoreValues.length > 0 && scoreValues.some(s => s > 0)) {
+                area.classList.remove('hidden');
+                resetBtn.classList.remove('hidden');
+                list.innerHTML = '';
+                for (let i = 0; i < state.playerCount; i++) {
+                    const color = PLAYER_COLORS[i];
+                    const score = state.scores[color.id] || 0;
+                    const item = document.createElement('div');
+                    item.className = "relative p-3 rounded-2xl border border-slate-200 bg-white min-w-[65px] text-center";
+                    item.innerHTML = `
+                        <div class="score-badge">${score}</div>
+                        <div class="w-5 h-5 rounded-full mx-auto" style="background-color:${color.code}"></div>
+                        <div class="text-[10px] font-black mt-2 uppercase text-slate-400">${color.name.substring(0,3)}</div>
+                    `;
+                    list.appendChild(item);
+                }
+            } else {
+                area.classList.add('hidden');
+                resetBtn.classList.add('hidden');
+            }
+        }
+
+        function prepareNextGame() {
+            state.round++;
+            goToSetup();
+        }
+
+        function goToSetup() {
+            updateNav(1);
+            showScreen('screen-setup');
+            updateSetupDisplay();
+        }
+
+        function resetAll() {
+            state.scores = {};
+            state.round = 1;
+            goToSetup();
+        }
+
+        function updateNav(step) {
+            for(let i=1; i<=4; i++) {
+                const el = document.getElementById(`nav-step-${i}`);
+                el.style.opacity = i === step ? "1" : "0.2";
+                const bar = el.querySelector('div');
+                if(bar) bar.style.backgroundColor = i === step ? "#4f46e5" : "#cbd5e1";
+            }
+        }
+
+        function showScreen(id) {
+            ['screen-setup', 'screen-ready', 'screen-reveal', 'screen-drawing', 'screen-results'].forEach(s => {
+                document.getElementById(s).classList.add('hidden');
+            });
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
